@@ -6,7 +6,7 @@ from xml.etree import ElementTree as ET
 app = Flask(__name__)
 
 # 你的微信公众号配置
-WECHAT_TOKEN = "your_token_here"  # 替换为你在微信公众平台设置的令牌
+WECHAT_TOKEN = "mywechat2025"  # 替换为你在微信公众平台设置的令牌
 
 # 添加一个简单的HTML模板
 HTML_TEMPLATE = """
