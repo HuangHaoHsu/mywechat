@@ -62,6 +62,17 @@ def check_signature():
 
 @app.route('/', methods=['GET', 'POST'])
 def wechat():
+    # 记录请求详情
+    request_info = {
+        'method': request.method,
+        'url': request.url,
+        'headers': dict(request.headers),
+        'args': dict(request.args),
+        'remote_addr': request.remote_addr,
+        'data': request.get_data(as_text=True) if request.is_json else request.data.decode('utf-8', errors='ignore') if request.data else None
+    }
+    logger.info(f"详细请求信息: {request_info}")
+    
     logger.info(f"收到 {request.method} 请求，参数: {request.args}")
     
     if request.method == 'GET':
@@ -108,7 +119,7 @@ def wechat():
                 logger.info(f"发送者: {to_user}, 接收者: {from_user}")
                 
                 # 无论收到什么类型的消息，都回复HelloWorld
-                response = "<xml>\n<ToUserName><![CDATA[{0}]]></ToUserName>\n<FromUserName><![CDATA[{1}]]></FromUserName>\n<CreateTime>{2}</CreateTime>\n<MsgType><![CDATA[text]]></MsgType>\n<Content><![CDATA[HelloWorld]]></Content>\n</xml>"
+                response = "<xml>\n<ToUserName><![CDATA[{0}]]></ToUserName>\n<FromUserName><![CDATA[{1}]]></FromUserName>\n<CreateTime>{2}</CreateTime>\n<MsgType><![CDATA[text]]></MsgType>\n<Content><![CDATA[收到消息：收到了您的消息]]></Content>\n</xml>"
                 now = int(time.time())
                 resp_xml = response.format(to_user, from_user, now)
                 
@@ -130,6 +141,58 @@ def wechat():
 # 确保 Vercel 可以导入 app
 # if __name__ == '__main__':
 #     app.run()
+
+# 添加测试路由，用于验证服务是否正常工作
+@app.route('/test', methods=['GET'])
+def test_route():
+    """简单的测试路由，返回当前时间"""
+    logger.info("访问测试路由")
+    current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+    return f"服务正常运行中。当前时间: {current_time}"
+
+# 添加模拟微信消息的路由，用于测试
+@app.route('/simulate', methods=['GET'])
+def simulate_wechat():
+    """模拟微信发送消息，用于测试响应"""
+    logger.info("访问模拟微信消息路由")
+    
+    # 创建模拟的微信XML消息
+    xml_content = f"""
+    <xml>
+        <ToUserName><![CDATA[gh_xxxxxxxxxxxx]]></ToUserName>
+        <FromUserName><![CDATA[test_user_openid]]></FromUserName>
+        <CreateTime>{int(time.time())}</CreateTime>
+        <MsgType><![CDATA[text]]></MsgType>
+        <Content><![CDATA[测试消息]]></Content>
+        <MsgId>1234567890123456</MsgId>
+    </xml>
+    """
+    
+    # 记录模拟请求
+    logger.info(f"模拟请求数据: {xml_content}")
+    
+    try:
+        # 解析XML
+        xml_data = ET.fromstring(xml_content)
+        
+        # 提取信息
+        to_user = xml_data.find('FromUserName').text  # 注意这里是反的，因为要回复给发送者
+        from_user = xml_data.find('ToUserName').text
+        
+        # 生成回复
+        response = "<xml>\n<ToUserName><![CDATA[{0}]]></ToUserName>\n<FromUserName><![CDATA[{1}]]></FromUserName>\n<CreateTime>{2}</CreateTime>\n<MsgType><![CDATA[text]]></MsgType>\n<Content><![CDATA[收到消息：收到了您的消息]]></Content>\n</xml>"
+        now = int(time.time())
+        resp_xml = response.format(to_user, from_user, now)
+        
+        logger.info(f"模拟回复: {resp_xml}")
+        
+        # 返回响应
+        resp = make_response(resp_xml)
+        resp.content_type = 'application/xml'
+        return resp
+    except Exception as e:
+        logger.error(f"模拟处理时发生错误: {str(e)}")
+        return f"处理模拟数据出错: {str(e)}", 500
 
 # 为 Vercel 添加日志处理路由
 @app.route('/logs', methods=['GET'])
