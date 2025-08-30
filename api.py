@@ -22,5 +22,6 @@ def wechat():
         resp.content_type = 'application/xml'
         return resp
 
-if __name__ == '__main__':
-    app.run()
+# 确保 Vercel 可以导入 app
+# if __name__ == '__main__':
+#     app.run()
