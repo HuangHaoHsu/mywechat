@@ -1,6 +1,12 @@
 from flask import Flask, request, make_response, render_template_string
+import hashlib
+import time
+from xml.etree import ElementTree as ET
 
 app = Flask(__name__)
+
+# 你的微信公众号配置
+WECHAT_TOKEN = "your_token_here"  # 替换为你在微信公众平台设置的令牌
 
 # 添加一个简单的HTML模板
 HTML_TEMPLATE = """
@@ -24,19 +30,45 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def check_signature():
+    """验证微信服务器请求的有效性"""
+    signature = request.args.get('signature', '')
+    timestamp = request.args.get('timestamp', '')
+    nonce = request.args.get('nonce', '')
+    echostr = request.args.get('echostr', '')
+    
+    # 按照微信的规则进行签名验证
+    token = WECHAT_TOKEN
+    temp_list = [token, timestamp, nonce]
+    temp_list.sort()
+    temp_str = ''.join(temp_list)
+    hashcode = hashlib.sha1(temp_str.encode('utf-8')).hexdigest()
+    
+    # 验证签名是否匹配
+    if hashcode == signature:
+        return True, echostr
+    return False, None
+
 @app.route('/', methods=['GET', 'POST'])
 def wechat():
     if request.method == 'GET':
         # 检查是否是微信服务器验证
-        if 'echostr' in request.args:
-            # WeChat server validation (Echo back the 'echostr' parameter)
-            echostr = request.args.get('echostr', '')
-            return make_response(echostr)
+        if 'signature' in request.args:
+            is_valid, echostr = check_signature()
+            if is_valid:
+                return echostr
+            else:
+                return "Signature verification failed", 403
         else:
             # 普通网页访问，返回欢迎页面
             return render_template_string(HTML_TEMPLATE)
     else:
         try:
+            # 验证请求签名
+            is_valid, _ = check_signature()
+            if not is_valid:
+                return "Signature verification failed", 403
+                
             # Always reply with HelloWorld
             response = "<xml>\n<ToUserName><![CDATA[{0}]]></ToUserName>\n<FromUserName><![CDATA[{1}]]></FromUserName>\n<CreateTime>{2}</CreateTime>\n<MsgType><![CDATA[text]]></MsgType>\n<Content><![CDATA[HelloWorld]]></Content>\n</xml>"
             import time
